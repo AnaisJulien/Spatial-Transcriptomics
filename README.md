@@ -1,6 +1,7 @@
 Spatial Transcriptomics Pipeline
 
 Raw .h5ad sections
+
        │
        ▼
 ┌─────────────────────────────┐
