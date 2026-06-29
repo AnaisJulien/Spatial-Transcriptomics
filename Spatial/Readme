@@ -1,9 +1,0 @@
-# Notice to cluster cells into domains using Banksy and use it for downstream analyses
-
-Step 1: Use "Manual section cluster_OK" script to isolate the area of interest (ie crush or injection area)
-
-Step 2: Use "Banksy per section" script to run Banksy package to identify domains per section
-
-Step 3: Use "Integration on matri with Harmony" script to integrate all the processed data together
-
-Step 4: Use "Gene exp, DEG an GO terms analayses" script to visualize gene expression, run DEG ans subsequent GO terms
