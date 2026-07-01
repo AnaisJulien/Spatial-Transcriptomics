@@ -63,19 +63,6 @@
 │  Annotated spatial      │
 │      object             │
 └──────────┬──────────────┘
-           │
-     ┌─────┴──────────┐
-     │                │
-     ▼                ▼
-┌──────────┐    ┌───────────────┐
-│  Augur   │    │    COMMOT     │
-│  · Rank  │    │  · Spatial    │
-│  cell    │    │    cell-cell  │
-│  types   │    │    comm.      │
-│  by AUC  │    │  · CellChat   │
-│  per     │    │    LR pairs   │
-│  condition    │  · 50 µm thr  │
-└──────────┘    └───────────────┘
 ```
 
 ## Notebooks
@@ -195,36 +182,6 @@ Unlike notebook 02 (genes only, scVI), this integrates cells using both their ow
 
 ---
 
-### `Augur.ipynb`
-Quantifies which cell types are most transcriptionally perturbed across conditions, using [Augur](https://github.com/neurorestore/Augur) (via `pertpy`).
-
-**Input:** annotated immune cell `.h5ad` with `broad_immune`, `inj_type`, `day`, and `phase` columns
-
-**Two analyses:**
-1. Per injury type — ranks cell types by AUC comparing each injury model (crush / myelin / liver) against uninjured, at each phase (acute / subacute / late)
-2. Across injury types — directly compares myelin vs liver at each phase
-
-**Output:** AUC scores per cell type and condition, summary plots (PDF)
-
----
-
-### `Commot.ipynb`
-Infers spatial cell-cell communication using [COMMOT](https://github.com/zcang/COMMOT).
-
-**Input:** spatial `.h5ad` with Tangram-derived meta-domain labels
-**Scope:** fibrotic scar (meta-domain 6), crush injury sections only
-**Database:** CellChat (mouse), 50 µm distance threshold
-
-**Steps:**
-1. Subset to crush + meta-domain 6
-2. Run `ct.tl.spatial_communication()` per slide → one `.h5ad` per slide
-3. Aggregate sender/receiver scores per cell type, timepoint, and pathway
-4. Visualise dominant pathways, fibroblast–immune interactions, spatial communication maps
-
-**Output:** per-slide `*_commot.h5ad` objects + pathway/LR pair summary plots
-
----
-
 ## Repository structure
 
 ```
@@ -235,8 +192,6 @@ Infers spatial cell-cell communication using [COMMOT](https://github.com/zcang/C
 ├── 02_1a_global_integration_scvi.ipynb   # Stage 2a: subset scVI re-integration
 ├── 02_1b_tangram.ipynb                   # Stage 2b: reference-based label transfer
 ├── 04_banksy_aware_integration.ipynb     # Stage 2 parallel: spatially-aware Harmony
-├── Augur.ipynb                           # Downstream: cell type perturbation ranking
-├── Commot.ipynb                          # Downstream: spatial cell-cell communication
 └── README.md
 ```
 
