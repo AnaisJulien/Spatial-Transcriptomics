@@ -1,1 +1,148 @@
 
+# BANKSY Domain Analysis
+
+Identifies recurring spatial tissue domains across all injury conditions and
+timepoints by running BANKSY + Harmony per group, extracting domain expression
+profiles, and clustering domains cross-condition into **meta-domains**.
+
+## Overview
+
+```
+Merged .h5ad (all sections)
+       │
+       ▼
+k_geom QC — median k-NN distances per group
+       │
+       ▼  (run once per GROUP_VALUE)
+┌─────────────────────────────────────────┐
+│  Per-group pipeline                     │
+│  · Subset to one inj_type × timepoint  │
+│  · Exclude low-quality batches          │
+│  · Normalize (CPM) + log1p             │
+│  · Stagger slide coords by batch        │
+│  · BANKSY (λ=0.8) → PCA (25 PCs)      │
+│  · Harmony batch correction             │
+│  · Leiden clustering (two methods,      │
+│    multiple resolutions)                │
+│  · Save domain expression profiles      │
+│  → adata_group_banksy_harmony.h5ad      │
+│  → domain_profiles__*.csv              │
+└─────────────────────────────────────────┘
+       │  (repeat for all groups)
+       ▼
+┌─────────────────────────────────────────┐
+│  Meta-domain discovery                  │
+│  · Load all domain profiles             │
+│  · Z-score genes across domains         │
+│  · Pairwise domain-domain correlation   │
+│  · Hierarchical clustering              │
+│  · Cut dendrogram into t meta-domains   │
+│  → meta_domains_mapping.csv            │
+└─────────────────────────────────────────┘
+```
+
+## Why this approach?
+
+Running BANKSY on the full merged dataset at once is computationally expensive
+and conflates batch effects with biological variation. Instead, BANKSY is run
+**per group** (one injury type × timepoint at a time), with Harmony correcting
+for slide-to-slide batch effects within each group. The resulting domain
+expression profiles (mean expression per Leiden cluster) are then compared
+**across all groups** via pairwise Pearson correlation to find domains that
+are transcriptionally similar regardless of when or where they appear.
+Hierarchical clustering of this correlation matrix defines the final
+**meta-domains** — tissue compartments that are reproducible across conditions.
+
+## Two clustering methods
+
+Each group is clustered two ways after Harmony correction, providing
+complementary views at the same resolutions:
+
+| Method | Implementation | Notes |
+|---|---|---|
+| **BANKSY-style Leiden** | `run_Leiden_partition` on BANKSY PCs | Spatially-aware — uses the full BANKSY graph structure |
+| **Scanpy-style Leiden** | `sc.pp.neighbors` + `sc.tl.leiden` on `X_pca_harmony` | Standard graph-based clustering, faster |
+
+Both are saved as separate columns in `adata.obs` and exported as domain
+profile CSVs. In practice the meta-domain step is run on one method's
+profiles (default: BANKSY-style at resolution 0.5).
+
+## Usage
+
+**Step 1 — QC:** run the k-NN distance cell to determine the best `k_geom`
+for each group. A higher median distance → consider increasing `k_geom`.
+
+**Step 2 — Per-group pipeline:** for each group, set:
+```python
+GROUP_VALUE = "inj_1_d5"   # must match a value in adata.obs["inj_type_per_day"]
+k_geom = 8                  # spatial neighbourhood size from QC
+```
+then run the pipeline cell. Repeat for all groups.
+
+**Step 3 — Meta-domains:** once all groups are processed, run the
+meta-domain cell. Adjust `t` to control the number of meta-domains:
+```python
+t = 9   # number of meta-domains to cut from the dendrogram
+```
+
+## Key parameters
+
+| Parameter | Default | Description |
+|---|---|---|
+| `k_geom` | 8 | BANKSY spatial neighbourhood size — set per-group from QC |
+| `lambda_list` | `[0.8]` | BANKSY mixing weight (0 = no neighbourhood) |
+| `pca_dim` | 25 | PCA components before Harmony |
+| `max_iter_harmony` | 50 | Harmony iterations |
+| `resolutions` | `[0.3, 0.5, 0.8, 1.0, 1.2]` | Leiden clustering resolutions (both methods) |
+| `scanpy_n_neighbors` | 30 | Neighbours for scanpy graph |
+| `spacing_factor` | 2.0 | Spacing between staggered slides in visualisation |
+| `t` | 9 | Number of meta-domains |
+
+## Input
+
+A merged `.h5ad` with:
+
+| Field | Description |
+|---|---|
+| `adata.X` | Raw count matrix (integers) |
+| `adata.obs["inj_type_per_day"]` | Group label (e.g. `inj_1_d5`) |
+| `adata.obs["batch"]` | Slide/section ID |
+| `adata.obs["x"]`, `adata.obs["y"]` | Spatial coordinates |
+
+## Outputs
+
+**Per group** (saved to `OUT_DIR/<GROUP_VALUE>/`):
+
+| File | Description |
+|---|---|
+| `adata_group_banksy_harmony.h5ad` | Integrated object with `counts` + `lognorm` layers, BANKSY/Harmony embeddings, and all cluster columns |
+| `domain_profiles__BANKSY__<key>.csv` | Mean log-normalized expression per BANKSY domain |
+| `domain_profiles__SCANPY__<key>.csv` | Mean log-normalized expression per Scanpy domain |
+| `domain_sizes__*.csv` | Cell count per domain |
+| `UMAP_domains_grid__<group>.png` | UMAP grid across all resolutions and methods |
+| `SPATIAL__HARMONY__<group>.png` | Spatial projection of Harmony/Scanpy clusters |
+| `SPATIAL__BANKSY__<group>.png` | Spatial projection of BANKSY clusters |
+| `stagger_check.png` | QC plot of staggered slide layout |
+
+**Meta-domain step:**
+
+| File | Description |
+|---|---|
+| `meta_domains_mapping.csv` | Maps each `<group>__<domain>` to a meta-domain ID |
+
+## Output layers & embeddings
+
+| Key | Location | Description |
+|---|---|---|
+| `counts` | `adata.layers` | Raw integer counts |
+| `lognorm` | `adata.layers` | CPM-normalized + log1p |
+| `X_pca_harmony` | `adata.obsm` | Harmony-corrected PCA (25 PCs) |
+| `X_umap_harmony` | `adata.obsm` | UMAP of Harmony embedding |
+| `harmony_leiden_<r>` | `adata.obs` | Scanpy Leiden labels per resolution |
+| `banksy_<params>` | `adata.obs` | BANKSY Leiden labels per resolution |
+
+## Requirements
+
+```
+scanpy · banksy · harmonypy · scipy · numpy · pandas · matplotlib · seaborn · joblib
+```
