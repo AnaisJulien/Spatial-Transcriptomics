@@ -1,1 +1,65 @@
 
+# DEG Analysis — Method Notes
+
+This notebook computes differential gene expression between two injury
+models (`inj_1` vs `inj_2`), separately for each injury phase, for a chosen
+cell type within a chosen spatial meta-domain.
+
+## Why pseudobulk?
+
+Spatial transcriptomics data has many cells per slide, but those cells are
+not independent biological replicates — they all come from the same animal
+and the same section. Running a statistical test directly on individual
+cells (as Wilcoxon does) treats each cell as if it were its own independent
+sample, which inflates statistical significance: with thousands of cells,
+almost any gene becomes "significant" even if the real difference is driven
+by one or two animals.
+
+**Pseudobulk** avoids this by summing raw counts across all cells of the
+target type within each biological replicate, producing one expression
+profile per replicate — similar to a low-input bulk RNA-seq sample. The
+statistical test then runs on these replicate-level profiles, so the unit
+of replication is the animal/replicate, not the cell. This is the standard
+recommended approach for single-cell and spatial DEG when biological
+replicates are available.
+
+## The three tests
+
+### Wilcoxon (per-cell, no pseudobulk)
+Runs `scanpy.tl.rank_genes_groups` directly on cells.
+
+- **Pros:** fast, simple, no replicate pooling needed, good for a first
+  exploratory look at candidate genes.
+- **Cons:** does not correct for pseudoreplication — p-values are typically
+  far more liberal (overconfident) than the pseudobulk methods, since
+  cells from the same animal are treated as independent. Not appropriate
+  for reported/published results.
+
+### edgeR (pseudobulk, recommended)
+Run via an `Rscript` subprocess on the pseudobulk replicate profiles.
+
+- **Pros:** TMM normalisation and dispersion estimation are well suited to
+  count data with variable library sizes; performs robustly even with a
+  small number of replicates per group; widely used and trusted for
+  pseudobulk DEG.
+- **Cons:** requires a working R installation with the `edgeR` package;
+  slightly more setup than a pure-Python method.
+
+### DESeq2 (pseudobulk, Python-native alternative)
+Run via `pydeseq2`, no R required.
+
+- **Pros:** stays entirely in Python, convenient if R isn't available.
+- **Cons:** less robust than edgeR when there are very few replicates per
+  group, which is common in this kind of study.
+
+## Summary
+
+| Method | Unit of replication | Pseudoreplication risk | Recommended for |
+|---|---|---|---|
+| Wilcoxon | cell | high | quick exploration only |
+| edgeR | replicate (pseudobulk) | corrected | reported results (default choice) |
+| DESeq2 | replicate (pseudobulk) | corrected | reported results when avoiding R |
+
+All three output a common format (`log2FoldChange`, `pvalue`, `padj`), so
+switching between them only requires changing which results dictionary is
+passed to the plotting functions.
