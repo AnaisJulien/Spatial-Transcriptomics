@@ -1,1 +1,50 @@
+### `Augur.ipynb`
+Quantifies which cell types are most transcriptionally perturbed across conditions, using [Augur](https://github.com/neurorestore/Augur) (via `pertpy`).
+
+**Input:** annotated immune cell `.h5ad` with `broad_immune`, `inj_type`, `day`, and `phase` columns
+
+**Two analyses:**
+1. Per injury type — ranks cell types by AUC comparing each injury model (crush / myelin / liver) against uninjured, at each phase (acute / subacute / late)
+2. Across injury types — directly compares myelin vs liver at each phase
+
+**Output:** AUC scores per cell type and condition, summary plots (PDF)
+
+---
+
+### `Commot.ipynb`
+Infers spatial cell-cell communication using [COMMOT](https://github.com/zcang/COMMOT).
+
+**Input:** spatial `.h5ad` with Tangram-derived meta-domain labels
+**Scope:** fibrotic scar (meta-domain 6), crush injury sections only
+**Database:** CellChat (mouse), 50 µm distance threshold
+
+**Steps:**
+1. Subset to crush + meta-domain 6
+2. Run `ct.tl.spatial_communication()` per slide → one `.h5ad` per slide
+3. Aggregate sender/receiver scores per cell type, timepoint, and pathway
+4. Visualise dominant pathways, fibroblast–immune interactions, spatial communication maps
+
+**Output:** per-slide `*_commot.h5ad` objects + pathway/LR pair summary plots
+
+---
+
+### `Tangram_v2.ipynb`
+Reference-based cell type label transfer using [Tangram](https://github.com/broadinstitute/Tangram) (via `scvi.external.Tangram` with Ray parallelisation).
+
+Maps a multiome scRNA-seq reference (immune cells + fibroblasts, processed separately) onto the integrated spatial object to assign fine-grained cell type identities to each spatial cell. Labels from both mappings are merged into a single `combined_tangram` column.
+
+**Input:**
+- Integrated spatial `.h5ad` (from notebook 02 or 02_1a)
+- scRNA-seq multiome reference `.h5ad` — one per population (immune cells, fibroblasts)
+
+**Steps:**
+1. **Patch** — fixes a Ray initialisation indentation bug in `refined_tangram` before importing
+2. **Load** — reads the spatial object and the scRNA-seq reference
+3. **Map** — runs `Tangram.from_rna_model()` to map reference cells onto spatial cells; mapping mode: cells (not spots)
+4. **Transfer** — projects cell type labels from the reference onto spatial cells
+5. **Merge** — combines immune and fibroblast label columns into `combined_tangram`
+
+**Output:** spatial `.h5ad` with transferred cell type labels in `obs["combined_tangram"]`
+
+> **Note:** requires `refined_tangram` with Ray parallelisation and `scvi-tools ≥ 1.0`. A one-time patch to `mapping_utils.py` is applied at the start of the notebook to fix a Ray initialisation issue — this modifies the installed package file in-place.
 
