@@ -42,23 +42,20 @@
            ▼
 ┌──────────────────────────────────────┐
 │  Cell type annotation                │
-│  → subset population of interest    │
+│  → subset population of interest     │
 └──────────┬───────────────────────────┘
            │
-     ┌─────┴──────────┐
-     │ expression-    │ reference-
-     │ based          │ based
-     ▼                ▼
-┌──────────┐    ┌───────────┐
-│  02_1a   │    │  02_1b    │
-│  scVI    │    │  Tangram  │
-│  subset  │    │  label    │
-│  re-integ│    │  transfer │
-└────┬─────┘    └─────┬─────┘
-     │                │
-     └────────┬───────┘
-              │
-              ▼
+           │ expression-based          
+           ▼
+     ┌──────────┐    
+     │  02_1    │   
+     │  scVI    │   
+     │  subset  │    
+     │  re-integ│    
+     └────┬─────┘   
+          │
+          │
+          ▼
 ┌─────────────────────────┐
 │  Annotated spatial      │
 │      object             │
